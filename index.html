@@ -1,0 +1,42 @@
+@echo off
+chcp 65001 > nul
+cls
+echo ===================================================
+echo             🕒 每日加班工時與事由登錄系統 🕒
+echo ===================================================
+echo.
+
+:: 取得今天的日期 (格式: YYYY-MM-DD)
+for /f "tokens=1-3 delims=-/ " %%a in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd'"') do set today=%%a-%%b-%%c
+
+echo 📅 今天的日期是: %today%
+echo.
+
+:: 讓工程師輸入加班起訖時間與時數
+set /p hours="💬 請輸入加班時間/時數 (例如: 17:30~19:30 或 2.0): "
+if "%hours%"=="" set hours=未填寫
+
+:: 讓工程師輸入加班理由
+set /p reason="💬 請輸入今天加班在做什麼 (專案單號/內部會議/製程優化): "
+if "%reason%"=="" set reason=未填寫
+
+:: 設定儲存路徑 (自動儲存在 D 槽的 OvertimeLog 資料夾)
+set log_dir=D:\OvertimeLog
+set log_file=%log_dir%\加班紀錄簿.txt
+
+:: 如果資料夾不存在就建立
+if not exist "%log_dir%" mkdir "%log_dir%"
+
+:: 將資料寫入檔案 (修正了原本少打 l 的變數錯誤)
+echo =================================================== >> "%log_file%"
+echo 日期: %today% >> "%log_file%"
+echo 時間: %hours% >> "%log_file%"
+echo 內容: %reason% >> "%log_file%"
+echo 紀錄時間: %time% >> "%log_file%"
+
+echo.
+echo ===================================================
+echo 💾 紀錄成功！已自動幫你寫入 %log_file%
+echo ===================================================
+echo.
+pause
