@@ -1,42 +1,94 @@
-@echo off
-chcp 65001 > nul
-cls
-echo ===================================================
-echo             🕒 每日加班工時與事由登錄系統 🕒
-echo ===================================================
-echo.
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕒 每日加班日誌</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="w-full Wells max-w-md bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-6">
+        <h2 class="text-2xl font-bold text-center text-indigo-400 mb-6 flex items-center justify-center gap-2">
+            <span>🕒</span> 每日加班紀錄
+        </h2>
+        
+        <form @submit.prevent="handleSubmit" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">加班日期</label>
+                <input type="date" v-model="formData.date" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">加班時數 / 時間</label>
+                <input type="text" v-model="formData.hours" placeholder="例如: 17:30~19:30 或 2.0" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">加班事由 / 內容</label>
+                <textarea v-model="formData.reason" rows="4" placeholder="請輸入專案單號、會議內容或製程優化細節..." required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+            
+            <button type="submit" :disabled="loading" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                {{ loading ? '儲存中...' : '確認送出 👾' }}
+            </button>
+        </form>
+        
+        <p v-if="statusMessage" class="mt-4 text-center text-sm font-medium text-emerald-400 animate-pulse">
+            {{ statusMessage }}
+        </p>
+    </div>
 
-:: 取得今天的日期 (格式: YYYY-MM-DD)
-for /f "tokens=1-3 delims=-/ " %%a in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd'"') do set today=%%a-%%b-%%c
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        createApp({
+            setup() {
+                // ⚠️ 請記得把這裡換成你之前設定好的 Google 表單連結
+                const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf96spQysFIAAlNPipFJFpPfiNPHlm3OO-4d27e7gbP4hiMOQ/formResponse";
+                
+                const formData = ref({ date: '', hours: '', reason: '' });
+                const loading = ref(false);
+                const statusMessage = ref('');
 
-echo 📅 今天的日期是: %today%
-echo.
+                onMounted(() => {
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    formData.value.date = `${yyyy}-${mm}-${dd}`;
+                });
 
-:: 讓工程師輸入加班起訖時間與時數
-set /p hours="💬 請輸入加班時間/時數 (例如: 17:30~19:30 或 2.0): "
-if "%hours%"=="" set hours=未填寫
+                const handleSubmit = () => {
+                    loading.value = true;
+                    statusMessage.value = '';
+                    
+                    const submitData = new FormData();
+                    // ⚠️ 請記得把這裡的 entry.xxxx 換成你表單實際的對應欄位代號
+                    submitData.append('entry.938362138', formData.value.date);
+                    submitData.append('entry.1658912371', formData.value.hours);
+                    submitData.append('entry.1649791627', formData.value.reason);
 
-:: 讓工程師輸入加班理由
-set /p reason="💬 請輸入今天加班在做什麼 (專案單號/內部會議/製程優化): "
-if "%reason%"=="" set reason=未填寫
+                    fetch(GOOGLE_FORM_URL, {
+                        method: 'POST',
+                        body: submitData,
+                        mode: 'no-cors'
+                    })
+                    .then(() => {
+                        statusMessage.value = "╮─╭ 紀錄成功！已同步至雲端試算表。";
+                        formData.value.hours = '';
+                        formData.value.reason = '';
+                    })
+                    .catch(err => {
+                        statusMessage.value = "❌ 發生錯誤！";
+                    })
+                    .finally(() => {
+                        loading.value = false;
+                    });
+                };
 
-:: 設定儲存路徑 (自動儲存在 D 槽的 OvertimeLog 資料夾)
-set log_dir=D:\OvertimeLog
-set log_file=%log_dir%\加班紀錄簿.txt
-
-:: 如果資料夾不存在就建立
-if not exist "%log_dir%" mkdir "%log_dir%"
-
-:: 將資料寫入檔案 (修正了原本少打 l 的變數錯誤)
-echo =================================================== >> "%log_file%"
-echo 日期: %today% >> "%log_file%"
-echo 時間: %hours% >> "%log_file%"
-echo 內容: %reason% >> "%log_file%"
-echo 紀錄時間: %time% >> "%log_file%"
-
-echo.
-echo ===================================================
-echo 💾 紀錄成功！已自動幫你寫入 %log_file%
-echo ===================================================
-echo.
-pause
+                return { formData, loading, statusMessage, handleSubmit };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
